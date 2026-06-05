@@ -67,7 +67,6 @@ const App: React.FC = () => {
                 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
             `}</style>
 
-            {/* ВАЖНО: НЕТ класса "dark" здесь! Только на documentElement */}
             <div
                 className={`min-h-screen transition-colors duration-300 ${
                     isDark

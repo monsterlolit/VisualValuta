@@ -34,7 +34,6 @@ export async function fetchAllMoexCurrencies(): Promise<
         marketMap.set(key, m);
     }
 
-    // 👇 ФИЛЬТР: Оставляем только TOM (Tomorrow) — это основные торги, без дубликатов TOD/FIX
     const rubPairs = securities.filter(
         (s) =>
             s.boardid === "CETS" &&
@@ -105,7 +104,6 @@ export async function fetchMoexHistoryForCurrency(
         const rowSecId = secIdIdx !== -1 ? row[secIdIdx] : secid;
         const rowBoardId = boardIdIdx !== -1 ? row[boardIdIdx] : "CETS";
 
-        // Жесткий фильтр: только нужный SECID и режим торгов CETS
         if (rowSecId !== secid || rowBoardId !== "CETS") continue;
 
         const dateStr = row[tradeDateIdx];
@@ -113,7 +111,6 @@ export async function fetchMoexHistoryForCurrency(
         const wapr = wapriceIdx !== -1 ? row[wapriceIdx] : null;
         const close = closeIdx !== -1 ? row[closeIdx] : null;
 
-        // Приоритет: LEGALCLOSEPRICE (офиц. курс) -> WAPRICE -> CLOSE. Игнорируем нули.
         const value = legalClose ?? wapr ?? close;
 
         if (dateStr && value !== null && value !== undefined && value > 0) {

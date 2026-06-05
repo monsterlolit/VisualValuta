@@ -49,7 +49,6 @@ export const useCurrencyRates = (
                     .map((p) => mapMoexToCurrencyData(p.market, p.security))
                     .filter((c): c is CurrencyData => c !== null);
 
-                // 👇 ДЕДУПЛИКАЦИЯ: Убираем дубликаты по коду валюты (чтобы не было 3-х долларов)
                 const uniqueData = new Map<string, CurrencyData>();
                 for (const c of rawData) {
                     if (!uniqueData.has(c.code)) {

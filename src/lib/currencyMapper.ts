@@ -1,5 +1,5 @@
-import type { CurrencyData, HistoryPoint } from "../types/currency";
 import type { CbrRateResult } from "../api/cbr";
+import type { CurrencyData } from "../types/currency";
 import type { FrankfurterCurrency } from "../types/frankfurter";
 import type { MoexMarketData, MoexSecurity } from "../types/moex";
 
@@ -78,7 +78,7 @@ const CURRENCY_FLAGS: Record<string, string> = {
     XDR: "💹",
     GLD: "🥇",
     XAU: "🥇",
-    XAG: "🥈", // 👈 Добавили металлы
+    XAG: "🥈",
 };
 
 const CURRENCY_NAMES: Record<string, string> = {
@@ -149,7 +149,7 @@ const CURRENCY_NAMES: Record<string, string> = {
     XDR: "СДР (МВФ)",
     GLD: "Золото",
     XAU: "Золото",
-    XAG: "Серебро", // 👈 Добавили металлы
+    XAG: "Серебро",
 };
 
 export function getFlagByCode(code: string): string {
@@ -181,7 +181,6 @@ export function mapCbrToCurrencyData(cbr: CbrRateResult): CurrencyData {
 
 export function mapFrankfurterToCurrencyData(
     frank: FrankfurterCurrency,
-    history?: HistoryPoint[],
 ): CurrencyData {
     return {
         code: frank.code,

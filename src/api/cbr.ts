@@ -64,12 +64,9 @@ export async function fetchCbrHistoryForCurrency(
     const date1 = formatDate(startDate);
     const date2 = formatDate(endDate);
 
-    // 👇 ИСПРАВЛЕНО: Параметр теперь VAL_NM_RQ (а не VAL_NM_ID)!
     const apiUrl = import.meta.env.DEV
         ? `/cbr-api/scripts/XML_dynamic.asp?date_req1=${date1}&date_req2=${date2}&VAL_NM_RQ=${id}`
         : `https://www.cbr.ru/scripts/XML_dynamic.asp?date_req1=${date1}&date_req2=${date2}&VAL_NM_RQ=${id}`;
-
-    console.log("🔗 Запрос истории ЦБ РФ:", apiUrl);
 
     try {
         const response = await fetch(apiUrl);
@@ -83,15 +80,6 @@ export async function fetchCbrHistoryForCurrency(
         }
 
         const text = await response.text();
-
-        // Проверка на пустой ответ от сервера
-        if (text.includes('<ValCurs ID=""') || !text.includes("<Record")) {
-            console.warn(
-                "⚠️ ЦБ РФ вернул пустой XML. Проверьте параметры запроса.",
-                apiUrl,
-            );
-            return [];
-        }
 
         const parser = new DOMParser();
         const xmlDoc = parser.parseFromString(text, "text/xml");
@@ -131,7 +119,7 @@ export async function fetchCbrHistoryForCurrency(
 
         return history;
     } catch (error) {
-        console.error("💥 Критическая ошибка при парсинге XML ЦБ РФ:", error);
+        console.error("Критическая ошибка при парсинге XML ЦБ РФ:", error);
         return [];
     }
 }

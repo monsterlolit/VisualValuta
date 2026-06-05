@@ -18,7 +18,6 @@ export const CurrencyItem: React.FC<CurrencyItemProps> = ({
     onClick,
     isInverseMode,
 }) => {
-    // Учитываем режим и базовую валюту
     const rate = isInverseMode
         ? 1 / currency.currentRate
         : currency.currentRate;
@@ -29,7 +28,6 @@ export const CurrencyItem: React.FC<CurrencyItemProps> = ({
 
     const formattedRate = formatCurrency(rate, currency.baseCurrency);
 
-    // Для ЕЦБ подписываем "за 1 евро", для остальных "за 1 единицу" или "за 1 рубль"
     const rateLabel = isInverseMode
         ? `за 1 ${currency.baseCurrency}`
         : "за 1 единицу";

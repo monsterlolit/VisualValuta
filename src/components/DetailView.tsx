@@ -85,7 +85,6 @@ export const DetailView: React.FC<DetailViewProps> = ({
     return (
         <div className="min-h-screen bg-gray-50 dark:bg-gray-900 pb-10">
             <div className="max-w-3xl mx-auto px-4 pt-6">
-                {/* Header */}
                 <div className="flex items-center justify-between mb-6">
                     {onBack && (
                         <button
@@ -110,7 +109,6 @@ export const DetailView: React.FC<DetailViewProps> = ({
                     </button>
                 </div>
 
-                {/* Currency Info */}
                 <div className="mb-6">
                     <div className="flex items-center gap-3 mb-2">
                         <div className="text-3xl">{currency.flag}</div>
@@ -146,7 +144,6 @@ export const DetailView: React.FC<DetailViewProps> = ({
                     </div>
                 </div>
 
-                {/* Chart */}
                 <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-4 mb-6">
                     {historyLoading ? (
                         <div className="h-64 flex items-center justify-center text-gray-500 dark:text-gray-400">
@@ -195,7 +192,7 @@ export const DetailView: React.FC<DetailViewProps> = ({
                                     hide
                                 />
                                 <Tooltip
-                                    content={<CustomTooltip />}
+                                    content={<CustomTooltip isDark={isDark} />}
                                     cursor={{
                                         stroke: isDark ? "#6b7280" : "#9ca3af",
                                         strokeWidth: 1,
@@ -226,7 +223,6 @@ export const DetailView: React.FC<DetailViewProps> = ({
                     )}
                 </div>
 
-                {/* Timeframes */}
                 <div className="bg-gray-100 dark:bg-gray-800 p-1 rounded-xl flex gap-1 mb-6">
                     {TIMEFRAMES.map((tf) => (
                         <button
@@ -243,7 +239,6 @@ export const DetailView: React.FC<DetailViewProps> = ({
                     ))}
                 </div>
 
-                {/* Stats */}
                 {!historyLoading && chartData.length > 0 && (
                     <div className="grid grid-cols-2 gap-4">
                         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-4">

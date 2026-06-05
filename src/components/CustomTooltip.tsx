@@ -1,5 +1,4 @@
 import React from "react";
-import type { Payload } from "recharts";
 import type { HistoryPoint, BaseCurrency } from "../types/currency";
 import { formatCurrency } from "../lib/formatCurrency";
 
