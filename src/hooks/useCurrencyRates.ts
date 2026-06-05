@@ -1,9 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { fetchCbrRates } from "../api/cbr";
-import {
-    fetchFrankfurterRates,
-    fetchFrankfurterHistory,
-} from "../api/frankfurter";
+import { fetchFrankfurterRates } from "../api/frankfurter";
 import { fetchAllMoexCurrencies } from "../api/moex";
 import {
     mapCbrToCurrencyData,
@@ -39,28 +36,13 @@ export const useCurrencyRates = (
 
             if (source === "ЦБ РФ") {
                 const cbrData = await fetchCbrRates();
+                // Теперь mapCbrToCurrencyData синхронный, никаких запросов истории!
                 data = cbrData.map(mapCbrToCurrencyData);
                 setHasRuble(true);
             } else if (source === "ЕЦБ") {
                 const frankData = await fetchFrankfurterRates("EUR");
                 const filtered = frankData.filter((f) => f.code !== "RUB");
-
-                // История одним запросом
-                let historyMap: Record<string, any[]> = {};
-                try {
-                    const symbols = filtered.map((f) => f.code);
-                    historyMap = await fetchFrankfurterHistory(
-                        "EUR",
-                        symbols,
-                        365,
-                    );
-                } catch (e) {
-                    console.warn("Failed to load Frankfurter history", e);
-                }
-
-                data = filtered.map((f) =>
-                    mapFrankfurterToCurrencyData(f, historyMap[f.code] || []),
-                );
+                data = filtered.map((f) => mapFrankfurterToCurrencyData(f));
                 setHasRuble(false);
             } else if (source === "Мосбиржа") {
                 const pairs = await fetchAllMoexCurrencies();

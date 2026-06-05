@@ -18,8 +18,9 @@ export interface CurrencyData extends CurrencyBase {
     change: number;
     changePercent: number;
     history: Record<string, HistoryPoint[]>;
-    baseCurrency: BaseCurrency; // относительно какой валюты показывается курс
+    baseCurrency: BaseCurrency;
     source: "ЦБ РФ" | "ЕЦБ" | "Мосбиржа";
+    nominal: number; // НОВОЕ: нужен для корректной загрузки истории ЦБ
 }
 
 export type Timeframe = "1Д" | "1Н" | "1М" | "1Г";

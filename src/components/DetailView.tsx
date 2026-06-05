@@ -19,6 +19,7 @@ import { CustomTooltip } from "./CustomTooltip";
 import type { CurrencyData, HistoryPoint, Timeframe } from "../types/currency";
 import { TIMEFRAMES } from "../constants";
 import { formatCurrency } from "../lib/formatCurrency";
+import { useCurrencyHistory } from "../hooks/useCurrencyHistory";
 
 interface DetailViewProps {
     currency: CurrencyData;
@@ -36,7 +37,12 @@ export const DetailView: React.FC<DetailViewProps> = ({
     isInverseMode,
 }) => {
     const [timeframe, setTimeframe] = useState<Timeframe>("1М");
-    const rawData = currency.history[timeframe] || [];
+
+    // Ленивая загрузка истории
+    const { history: rawData, loading: historyLoading } = useCurrencyHistory(
+        currency,
+        timeframe,
+    );
 
     // Инвертируем данные графика
     const chartData: HistoryPoint[] = useMemo(() => {
@@ -58,7 +64,6 @@ export const DetailView: React.FC<DetailViewProps> = ({
         previousRate !== 0 ? (change / previousRate) * 100 : 0;
     const displayPositive = change >= 0;
 
-    // Определяем цвет
     const isDark = document.documentElement.classList.contains("dark");
     const strokeColor = displayPositive
         ? isDark
@@ -76,7 +81,6 @@ export const DetailView: React.FC<DetailViewProps> = ({
         ? Math.max(...chartData.map((d) => d.value))
         : 0;
 
-    // Формируем заголовок пары с учётом режима
     const pairLabel = isInverseMode
         ? `${currency.baseCurrency} / ${currency.code}`
         : `${currency.code} / ${currency.baseCurrency}`;
@@ -130,7 +134,11 @@ export const DetailView: React.FC<DetailViewProps> = ({
             </div>
 
             <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 p-4 mb-6 h-72 lg:h-80 transition-colors duration-300">
-                {chartData.length === 0 ? (
+                {historyLoading ? (
+                    <div className="w-full h-full flex items-center justify-center text-gray-400 dark:text-gray-500 text-sm">
+                        <div className="animate-pulse">Загрузка истории...</div>
+                    </div>
+                ) : chartData.length === 0 ? (
                     <div className="w-full h-full flex items-center justify-center text-gray-400 dark:text-gray-500 text-sm">
                         Нет данных за выбранный период
                     </div>
