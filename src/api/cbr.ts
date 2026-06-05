@@ -1,91 +1,29 @@
 import type { CbrResponse, CbrCurrency } from "../types/cbr";
 import type { HistoryPoint } from "../types/currency";
 
-const BASE_URL = "https://www.cbr-xml-daily.ru";
-const CBR_XML_URL = "https://www.cbr.ru/scripts/XML_dynamic.asp";
+// ВАЖНО: используем /cbr-api вместо прямого URL
+// Vite проксирует это на https://www.cbr-xml-daily.ru
+const CBR_BASE = "/cbr-api";
 
-// CORS proxy для обхода блокировки браузером
-const CORS_PROXY = "https://corsproxy.io/?url=";
+// Кэш для истории: ключ = "USD-2026-06-05", значение = курс
+const historyCache = new Map<string, number>();
 
-// ПОЛНЫЙ маппинг кодов валют на ID для XML API ЦБ РФ
-const CURRENCY_IDS: Record<string, string> = {
-    USD: "R01235",
-    EUR: "R01239",
-    GBP: "R01035",
-    CNY: "R01375",
-    JPY: "R01820",
-    CHF: "R01775",
-    TRY: "R01700J",
-    KZT: "R01335",
-    BYN: "R01090B",
-    UAH: "R01720",
-    AUD: "R01010",
-    CAD: "R01350",
-    SEK: "R01770",
-    NOK: "R01535",
-    DKK: "R01215",
-    PLN: "R01565",
-    CZK: "R01760",
-    HUF: "R01135",
-    RON: "R01585F",
-    BGN: "R01085A",
-    ISK: "R01245",
-    KRW: "R01815",
-    INR: "R01270",
-    SGD: "R01625",
-    HKD: "R01200",
-    THB: "R01675",
-    MYR: "R01530",
-    IDR: "R01280",
-    PHP: "R01560",
-    TWD: "R01670",
-    ILS: "R01250",
-    AMD: "R01060",
-    GEL: "R01210",
-    AZN: "R01020A",
-    KGS: "R01370",
-    TJS: "R01670",
-    TMT: "R01710A",
-    UZS: "R01717",
-    MDL: "R01500",
-    MNT: "R01503",
-    VND: "R01150",
-    AED: "R01230",
-    SAR: "R01580",
-    QAR: "R01355",
-    BHD: "R01080",
-    OMR: "R01540",
-    JOD: "R01255",
-    EGP: "R01240",
-    IRR: "R01300",
-    BRL: "R01115",
-    MXN: "R01525",
-    ARS: "R01030",
-    CLP: "R01110",
-    COP: "R01120",
-    PEN: "R01550",
-    BOB: "R01105",
-    ZAR: "R01810",
-    NGN: "R01520",
-    ETB: "R01800",
-    RSD: "R01805F",
-    BDT: "R01685",
-    XDR: "R01589",
-    // Добавляем недостающие
-    DZD: "R01030",
-    CUP: "R01395",
-    NZD: "R01530",
-    MMK: "R02005",
-};
-
-// Кэш истории в памяти (переживает ре-рендеры)
-const historyCache = new Map<string, HistoryPoint[]>();
+// Кэш для справочника валют (ID по коду)
+let valuteIdsCache: Map<string, { id: string; nominal: number }> | null = null;
 
 export async function fetchCbrRates(): Promise<CbrCurrency[]> {
-    const response = await fetch(`${BASE_URL}/daily_json.js`);
+    const response = await fetch(`${CBR_BASE}/daily_json.js`);
     if (!response.ok) throw new Error("Failed to fetch CBR rates");
 
     const data: CbrResponse = await response.json();
+
+    // Параллельно сохраняем ID валют для истории
+    if (!valuteIdsCache) {
+        valuteIdsCache = new Map();
+        Object.values(data.Valute).forEach((v) => {
+            valuteIdsCache!.set(v.CharCode, { id: v.ID, nominal: v.Nominal });
+        });
+    }
 
     return Object.values(data.Valute).map((valute) => {
         const change = valute.Value - valute.Previous;
@@ -104,99 +42,139 @@ export async function fetchCbrRates(): Promise<CbrCurrency[]> {
     });
 }
 
-function formatDateForCbrXml(date: Date): string {
-    const day = String(date.getDate()).padStart(2, "0");
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    const year = date.getFullYear();
-    return `${day}.${month}.${year}`;
+/**
+ * Форматирует дату в формат для URL архива ЦБ: YYYY/MM/DD
+ */
+function formatDateForArchive(date: Date): string {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, "0");
+    const d = String(date.getDate()).padStart(2, "0");
+    return `${y}/${m}/${d}`;
 }
 
-function parseCbrXml(xmlString: string, nominal: number): HistoryPoint[] {
-    const parser = new DOMParser();
-    const xmlDoc = parser.parseFromString(xmlString, "text/xml");
-    const records = xmlDoc.getElementsByTagName("Record");
-    const history: HistoryPoint[] = [];
-
-    for (let i = 0; i < records.length; i++) {
-        const record = records[i];
-        const dateStr = record.getAttribute("Date");
-        const valueNode = record.getElementsByTagName("Value")[0];
-        const nominalNode = record.getElementsByTagName("Nominal")[0];
-
-        if (!dateStr || !valueNode) continue;
-
-        // Используем номинал из XML если есть, иначе переданный
-        const recordNominal = nominalNode
-            ? parseInt(nominalNode.textContent || "1")
-            : nominal;
-
-        const valueText = valueNode.textContent || "0";
-        const value = parseFloat(valueText.replace(",", "."));
-
-        const [day, month, year] = dateStr.split(".");
-        const date = new Date(
-            parseInt(year),
-            parseInt(month) - 1,
-            parseInt(day),
-        );
-
-        history.push({
-            date: date.toLocaleDateString("ru-RU", {
-                day: "numeric",
-                month: "short",
-            }),
-            value: value / recordNominal,
-        });
-    }
-
-    return history;
+function formatDateForDisplay(date: Date): string {
+    return date.toLocaleDateString("ru-RU", {
+        day: "numeric",
+        month: "short",
+    });
 }
 
 /**
- * Загружает историю для ОДНОЙ валюты. Вызывается лениво из DetailView.
- * Использует кэш и CORS proxy.
+ * Генерирует список дат с разумной дискретизацией.
+ * Для 1 года - раз в неделю (~52 точки)
+ * Для 1 месяца - каждые 3 дня (~10 точек)
+ * Для 1 недели - каждый день
  */
-export async function fetchCbrHistoryForCurrency(
-    code: string,
-    days: number,
-    nominal: number = 1,
-): Promise<HistoryPoint[]> {
-    const cacheKey = `${code}-${days}`;
+function generateDateSteps(days: number): Date[] {
+    const dates: Date[] = [];
+    const now = new Date();
+    now.setHours(12, 0, 0, 0);
 
-    // Возвращаем из кэша если есть
+    let step = 1;
+    if (days > 60)
+        step = 7; // год → раз в неделю
+    else if (days > 14)
+        step = 3; // месяц → каждые 3 дня
+    else if (days > 1) step = 1; // неделя → каждый день
+
+    for (let i = days; i >= 0; i -= step) {
+        const date = new Date(now);
+        date.setDate(date.getDate() - i);
+        dates.push(date);
+    }
+
+    // Гарантируем что сегодняшняя дата всегда есть
+    const lastDate = dates[dates.length - 1];
+    if (lastDate && lastDate.toDateString() !== now.toDateString()) {
+        dates.push(now);
+    }
+
+    return dates;
+}
+
+/**
+ * Получает курс валюты на конкретную дату из архива ЦБ РФ.
+ * Использует кэш чтобы не делать повторные запросы.
+ */
+async function fetchRateForDate(
+    code: string,
+    date: Date,
+): Promise<number | null> {
+    const dateKey = `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+    const cacheKey = `${code}-${dateKey}`;
+
     if (historyCache.has(cacheKey)) {
         return historyCache.get(cacheKey)!;
     }
 
-    const currencyId = CURRENCY_IDS[code];
-    if (!currencyId) {
-        return [];
-    }
-
-    const endDate = new Date();
-    const startDate = new Date();
-    startDate.setDate(startDate.getDate() - days);
-
-    const dateReq1 = formatDateForCbrXml(startDate);
-    const dateReq2 = formatDateForCbrXml(endDate);
-
-    const originalUrl = `${CBR_XML_URL}?date_req1=${dateReq1}&date_req2=${dateReq2}&VAL_NM_RZ=${currencyId}`;
-    const proxiedUrl = `${CORS_PROXY}${encodeURIComponent(originalUrl)}`;
+    const datePath = formatDateForArchive(date);
+    const url = `${CBR_BASE}/archive/${datePath}/daily_json.js`;
 
     try {
-        const response = await fetch(proxiedUrl);
-        if (!response.ok) {
-            throw new Error(`CBR XML API error: ${response.status}`);
-        }
+        const response = await fetch(url);
+        if (!response.ok) return null;
 
-        const xmlString = await response.text();
-        const history = parseCbrXml(xmlString, nominal);
+        const data: CbrResponse = await response.json();
+        const valute = Object.values(data.Valute).find(
+            (v) => v.CharCode === code,
+        );
 
-        // Сохраняем в кэш
-        historyCache.set(cacheKey, history);
-        return history;
-    } catch (error) {
-        console.error(`Failed to fetch CBR history for ${code}:`, error);
-        return [];
+        if (!valute) return null;
+
+        const rate = valute.Value / valute.Nominal;
+
+        // Кэшируем ВСЕ валюты из этого запроса
+        Object.values(data.Valute).forEach((v) => {
+            const key = `${v.CharCode}-${dateKey}`;
+            historyCache.set(key, v.Value / v.Nominal);
+        });
+
+        return rate;
+    } catch {
+        return null;
     }
+}
+
+/**
+ * Загружает историю для одной валюты за указанный период.
+ * Использует кэш и оптимальную дискретизацию.
+ */
+export async function fetchCbrHistoryForCurrency(
+    code: string,
+    days: number,
+): Promise<HistoryPoint[]> {
+    const dates = generateDateSteps(days);
+
+    // Загружаем параллельно, но ограничиваем конкурентность
+    const results: HistoryPoint[] = [];
+    const BATCH_SIZE = 5;
+
+    for (let i = 0; i < dates.length; i += BATCH_SIZE) {
+        const batch = dates.slice(i, i + BATCH_SIZE);
+        const batchResults = await Promise.all(
+            batch.map(async (date) => {
+                const rate = await fetchRateForDate(code, date);
+                if (rate === null) return null;
+                return {
+                    date: formatDateForDisplay(date),
+                    value: rate,
+                } as HistoryPoint;
+            }),
+        );
+
+        for (const result of batchResults) {
+            if (result) results.push(result);
+        }
+    }
+
+    return results;
+}
+
+/**
+ * Получает справочник ID валют (используется для fallback)
+ */
+export function getValuteId(
+    code: string,
+): { id: string; nominal: number } | null {
+    return valuteIdsCache?.get(code) || null;
 }
