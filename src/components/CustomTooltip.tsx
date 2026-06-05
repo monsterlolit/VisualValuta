@@ -1,0 +1,31 @@
+import React from "react";
+import type { Payload } from "recharts";
+import type { HistoryPoint } from "../types/currency";
+import { formatCurrency } from "../lib/formatCurrency";
+
+interface CustomTooltipProps {
+    active?: boolean;
+    payload?: Payload[];
+    isDark: boolean;
+}
+
+export const CustomTooltip: React.FC<CustomTooltipProps> = ({
+    active,
+    payload,
+    isDark,
+}) => {
+    if (active && payload && payload.length) {
+        const entry = payload[0].payload as HistoryPoint;
+        return (
+            <div
+                className={`${isDark ? "bg-gray-800 border-gray-700 text-gray-100" : "bg-gray-900 border-gray-800 text-white"} text-xs rounded-lg p-3 shadow-xl border`}
+            >
+                <p className="font-medium mb-1">{entry.date}</p>
+                <p className="text-blue-400 dark:text-blue-300 font-bold">
+                    {formatCurrency(entry.value)}
+                </p>
+            </div>
+        );
+    }
+    return null;
+};
