@@ -7,7 +7,6 @@ import {
     Tooltip,
     ResponsiveContainer,
     Area,
-    CartesianGrid,
 } from "recharts";
 import {
     IconArrowDownRight,
@@ -38,13 +37,11 @@ export const DetailView: React.FC<DetailViewProps> = ({
 }) => {
     const [timeframe, setTimeframe] = useState<Timeframe>("1М");
 
-    // Ленивая загрузка истории
     const { history: rawData, loading: historyLoading } = useCurrencyHistory(
         currency,
         timeframe,
     );
 
-    // Инвертируем данные графика
     const chartData: HistoryPoint[] = useMemo(() => {
         if (!isInverseMode) return rawData;
         return rawData.map((p) => ({
@@ -86,218 +83,187 @@ export const DetailView: React.FC<DetailViewProps> = ({
         : `${currency.code} / ${currency.baseCurrency}`;
 
     return (
-        <div className="h-full flex flex-col">
-            <div className="flex items-center gap-3 mb-6">
-                {onBack && (
-                    <button
-                        onClick={onBack}
-                        className="p-2 -ml-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors lg:hidden"
-                    >
-                        <IconArrowLeft className="w-6 h-6 text-gray-700 dark:text-gray-300" />
-                    </button>
-                )}
-                <div className="flex-1">
-                    <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-50 flex items-center gap-2">
-                        {currency.flag} {currency.name}
-                    </h2>
-                    <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">
-                        {pairLabel}
-                    </p>
-                </div>
-                <button
-                    onClick={() => onToggleFavorite(currency.code)}
-                    className="p-2.5 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                >
-                    <IconStar
-                        className={`w-6 h-6 ${isFavorite ? "fill-yellow-400 text-yellow-400" : "text-gray-300 dark:text-gray-600"}`}
-                    />
-                </button>
-            </div>
-
-            <div className="mb-6">
-                <div className="text-4xl font-bold text-gray-900 dark:text-gray-50 mb-2">
-                    {formatCurrency(currentRate, currency.baseCurrency)}
-                </div>
-                <div
-                    className={`flex items-center gap-2 text-base font-semibold ${displayPositive ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}
-                >
-                    {displayPositive ? (
-                        <IconArrowUpRight className="w-5 h-5" />
-                    ) : (
-                        <IconArrowDownRight className="w-5 h-5" />
+        <div className="min-h-screen bg-gray-50 dark:bg-gray-900 pb-10">
+            <div className="max-w-3xl mx-auto px-4 pt-6">
+                {/* Header */}
+                <div className="flex items-center justify-between mb-6">
+                    {onBack && (
+                        <button
+                            onClick={onBack}
+                            className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-800 transition-colors"
+                        >
+                            <IconArrowLeft className="w-6 h-6 text-gray-700 dark:text-gray-300" />
+                        </button>
                     )}
-                    <span>
-                        {Math.abs(change).toFixed(4)} (
-                        {Math.abs(changePercent).toFixed(2)}%) за сегодня
-                    </span>
+                    <div className="flex-1"></div>
+                    <button
+                        onClick={() => onToggleFavorite(currency.code)}
+                        className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-800 transition-colors"
+                    >
+                        <IconStar
+                            className={`w-6 h-6 transition-colors ${
+                                isFavorite
+                                    ? "fill-yellow-400 text-yellow-400"
+                                    : "text-gray-400"
+                            }`}
+                        />
+                    </button>
                 </div>
-            </div>
 
-            <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 p-4 mb-6 h-72 lg:h-80 transition-colors duration-300">
-                {historyLoading ? (
-                    <div className="w-full h-full flex items-center justify-center text-gray-400 dark:text-gray-500 text-sm">
-                        <div className="animate-pulse flex items-center gap-2">
-                            <svg
-                                className="w-5 h-5 animate-spin"
-                                viewBox="0 0 24 24"
-                            >
-                                <circle
-                                    className="opacity-25"
-                                    cx="12"
-                                    cy="12"
-                                    r="10"
-                                    stroke="currentColor"
-                                    strokeWidth="4"
-                                    fill="none"
-                                />
-                                <path
-                                    className="opacity-75"
-                                    fill="currentColor"
-                                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                                />
-                            </svg>
-                            Загрузка истории...
+                {/* Currency Info */}
+                <div className="mb-6">
+                    <div className="flex items-center gap-3 mb-2">
+                        <div className="text-3xl">{currency.flag}</div>
+                        <div>
+                            <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">
+                                {currency.name}
+                            </h2>
+                            <p className="text-sm text-gray-500 dark:text-gray-400">
+                                {pairLabel}
+                            </p>
                         </div>
                     </div>
-                ) : chartData.length === 0 ? (
-                    <div className="w-full h-full flex flex-col items-center justify-center text-gray-400 dark:text-gray-500 text-sm gap-2">
-                        <svg
-                            className="w-12 h-12 opacity-30"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
+
+                    <div className="flex items-baseline gap-3 flex-wrap">
+                        <span className="text-4xl font-extrabold text-gray-900 dark:text-gray-100">
+                            {formatCurrency(currentRate, currency.baseCurrency)}
+                        </span>
+                        <span
+                            className={`flex items-center text-sm font-semibold ${
+                                displayPositive
+                                    ? "text-green-600 dark:text-green-400"
+                                    : "text-red-600 dark:text-red-400"
+                            }`}
                         >
-                            <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
-                            />
-                        </svg>
-                        {currency.source === "Мосбиржа"
-                            ? "История для Мосбиржи пока недоступна"
-                            : "Нет данных за выбранный период"}
+                            {displayPositive ? (
+                                <IconArrowUpRight className="w-4 h-4 mr-1" />
+                            ) : (
+                                <IconArrowDownRight className="w-4 h-4 mr-1" />
+                            )}
+                            {Math.abs(change).toFixed(4)} (
+                            {Math.abs(changePercent).toFixed(2)}%)
+                        </span>
                     </div>
-                ) : (
-                    <ResponsiveContainer width="100%" height="100%">
-                        <LineChart
-                            data={chartData}
-                            margin={{
-                                top: 10,
-                                right: 10,
-                                left: -20,
-                                bottom: 0,
-                            }}
+                </div>
+
+                {/* Chart */}
+                <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-4 mb-6">
+                    {historyLoading ? (
+                        <div className="h-64 flex items-center justify-center text-gray-500 dark:text-gray-400">
+                            Загрузка истории...
+                        </div>
+                    ) : chartData.length === 0 ? (
+                        <div className="h-64 flex items-center justify-center text-gray-500 dark:text-gray-400 text-center px-4">
+                            {currency.source === "Мосбиржа"
+                                ? "История для Мосбиржи пока недоступна"
+                                : "Нет данных за выбранный период"}
+                        </div>
+                    ) : (
+                        <ResponsiveContainer width="100%" height={256}>
+                            <LineChart
+                                data={chartData}
+                                margin={{
+                                    top: 10,
+                                    right: 10,
+                                    left: 0,
+                                    bottom: 0,
+                                }}
+                            >
+                                <defs>
+                                    <linearGradient
+                                        id={gradientId}
+                                        x1="0"
+                                        y1="0"
+                                        x2="0"
+                                        y2="1"
+                                    >
+                                        <stop
+                                            offset="5%"
+                                            stopColor={strokeColor}
+                                            stopOpacity={0.2}
+                                        />
+                                        <stop
+                                            offset="95%"
+                                            stopColor={strokeColor}
+                                            stopOpacity={0}
+                                        />
+                                    </linearGradient>
+                                </defs>
+                                <XAxis dataKey="date" hide />
+                                <YAxis
+                                    domain={["dataMin - 1", "dataMax + 1"]}
+                                    hide
+                                />
+                                <Tooltip
+                                    content={<CustomTooltip />}
+                                    cursor={{
+                                        stroke: isDark ? "#6b7280" : "#9ca3af",
+                                        strokeWidth: 1,
+                                        strokeDasharray: "4 4",
+                                    }}
+                                />
+                                <Area
+                                    type="monotone"
+                                    dataKey="value"
+                                    stroke="none"
+                                    fill={`url(#${gradientId})`}
+                                />
+                                <Line
+                                    type="monotone"
+                                    dataKey="value"
+                                    stroke={strokeColor}
+                                    strokeWidth={2}
+                                    dot={false}
+                                    activeDot={{
+                                        r: 6,
+                                        fill: strokeColor,
+                                        stroke: isDark ? "#111827" : "#ffffff",
+                                        strokeWidth: 2,
+                                    }}
+                                />
+                            </LineChart>
+                        </ResponsiveContainer>
+                    )}
+                </div>
+
+                {/* Timeframes */}
+                <div className="bg-gray-100 dark:bg-gray-800 p-1 rounded-xl flex gap-1 mb-6">
+                    {TIMEFRAMES.map((tf) => (
+                        <button
+                            key={tf}
+                            onClick={() => setTimeframe(tf)}
+                            className={`flex-1 py-2.5 rounded-lg text-sm font-semibold transition-all ${
+                                timeframe === tf
+                                    ? "bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-sm"
+                                    : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+                            }`}
                         >
-                            <defs>
-                                <linearGradient
-                                    id={gradientId}
-                                    x1="0"
-                                    y1="0"
-                                    x2="0"
-                                    y2="1"
-                                >
-                                    <stop
-                                        offset="5%"
-                                        stopColor={strokeColor}
-                                        stopOpacity={isDark ? 0.3 : 0.2}
-                                    />
-                                    <stop
-                                        offset="95%"
-                                        stopColor={strokeColor}
-                                        stopOpacity={0}
-                                    />
-                                </linearGradient>
-                            </defs>
-                            <CartesianGrid
-                                strokeDasharray="3 3"
-                                stroke={isDark ? "#374151" : "#e5e7eb"}
-                                vertical={false}
-                            />
-                            <XAxis
-                                dataKey="date"
-                                axisLine={false}
-                                tickLine={false}
-                                tick={{
-                                    fontSize: 11,
-                                    fill: isDark ? "#9ca3af" : "#6b7280",
-                                }}
-                                minTickGap={40}
-                            />
-                            <YAxis
-                                hide
-                                domain={["dataMin - 1", "dataMax + 1"]}
-                            />
-                            <Tooltip
-                                content={
-                                    <CustomTooltip
-                                        isDark={isDark}
-                                        baseCurrency={currency.baseCurrency}
-                                    />
-                                }
-                                cursor={{
-                                    stroke: isDark ? "#6b7280" : "#9ca3af",
-                                    strokeWidth: 1,
-                                    strokeDasharray: "4 4",
-                                }}
-                            />
-                            <Area
-                                type="monotone"
-                                dataKey="value"
-                                stroke="none"
-                                fill={`url(#${gradientId})`}
-                            />
-                            <Line
-                                type="monotone"
-                                dataKey="value"
-                                stroke={strokeColor}
-                                strokeWidth={2.5}
-                                dot={false}
-                                activeDot={{
-                                    r: 5,
-                                    fill: strokeColor,
-                                    stroke: isDark ? "#111827" : "#fff",
-                                    strokeWidth: 2,
-                                }}
-                            />
-                        </LineChart>
-                    </ResponsiveContainer>
+                            {tf}
+                        </button>
+                    ))}
+                </div>
+
+                {/* Stats */}
+                {!historyLoading && chartData.length > 0 && (
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-4">
+                            <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">
+                                Минимум
+                            </p>
+                            <p className="text-lg font-bold text-gray-900 dark:text-gray-100">
+                                {formatCurrency(min, currency.baseCurrency)}
+                            </p>
+                        </div>
+                        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 p-4">
+                            <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">
+                                Максимум
+                            </p>
+                            <p className="text-lg font-bold text-gray-900 dark:text-gray-100">
+                                {formatCurrency(max, currency.baseCurrency)}
+                            </p>
+                        </div>
+                    </div>
                 )}
-            </div>
-
-            <div className="flex gap-1 bg-gray-100 dark:bg-gray-800 p-1 rounded-xl mb-6 transition-colors duration-300">
-                {TIMEFRAMES.map((tf) => (
-                    <button
-                        key={tf}
-                        onClick={() => setTimeframe(tf)}
-                        className={`flex-1 py-2.5 rounded-lg text-sm font-semibold transition-all ${
-                            timeframe === tf
-                                ? "bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-sm"
-                                : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
-                        }`}
-                    >
-                        {tf}
-                    </button>
-                ))}
-            </div>
-
-            <div className="grid grid-cols-2 gap-3 mt-auto">
-                <div className="bg-white dark:bg-gray-900 p-4 rounded-2xl border border-gray-100 dark:border-gray-800 transition-colors duration-300">
-                    <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400 text-xs font-semibold mb-1 uppercase tracking-wide">
-                        <IconArrowDownRight className="w-3.5 h-3.5" /> Минимум
-                    </div>
-                    <div className="text-lg font-bold text-gray-900 dark:text-gray-100">
-                        {formatCurrency(min, currency.baseCurrency)}
-                    </div>
-                </div>
-                <div className="bg-white dark:bg-gray-900 p-4 rounded-2xl border border-gray-100 dark:border-gray-800 transition-colors duration-300">
-                    <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400 text-xs font-semibold mb-1 uppercase tracking-wide">
-                        <IconArrowUpRight className="w-3.5 h-3.5" /> Максимум
-                    </div>
-                    <div className="text-lg font-bold text-gray-900 dark:text-gray-100">
-                        {formatCurrency(max, currency.baseCurrency)}
-                    </div>
-                </div>
             </div>
         </div>
     );

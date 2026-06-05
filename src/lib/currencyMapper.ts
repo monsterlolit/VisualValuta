@@ -1,7 +1,7 @@
 import type { CurrencyData, HistoryPoint } from "../types/currency";
-import type { CbrCurrency } from "../types/cbr";
+import type { CbrRateResult } from "../api/cbr";
 import type { FrankfurterCurrency } from "../types/frankfurter";
-import type { MoexMarketData } from "../types/moex";
+import type { MoexMarketData, MoexSecurity } from "../types/moex";
 
 const CURRENCY_FLAGS: Record<string, string> = {
     USD: "🇺🇸",
@@ -76,7 +76,9 @@ const CURRENCY_FLAGS: Record<string, string> = {
     RSD: "🇷🇸",
     BDT: "🇧🇩",
     XDR: "💹",
-    MMK: "🇲🇲",
+    GLD: "🥇",
+    XAU: "🥇",
+    XAG: "🥈", // 👈 Добавили металлы
 };
 
 const CURRENCY_NAMES: Record<string, string> = {
@@ -145,9 +147,9 @@ const CURRENCY_NAMES: Record<string, string> = {
     RSD: "Сербский динар",
     BDT: "Бангладешская така",
     XDR: "СДР (МВФ)",
-    DZD: "Алжирский динар",
-    CUP: "Кубинское песо",
-    MMK: "Мьянманский кьят",
+    GLD: "Золото",
+    XAU: "Золото",
+    XAG: "Серебро", // 👈 Добавили металлы
 };
 
 export function getFlagByCode(code: string): string {
@@ -158,10 +160,8 @@ export function getCurrencyName(code: string): string {
     return CURRENCY_NAMES[code] || code;
 }
 
-// ЦБ РФ — БЕЗ истории (загружается лениво в DetailView)
-export function mapCbrToCurrencyData(cbr: CbrCurrency): CurrencyData {
+export function mapCbrToCurrencyData(cbr: CbrRateResult): CurrencyData {
     const baseRate = cbr.value / cbr.nominal;
-
     return {
         code: cbr.code,
         name: cbr.name || getCurrencyName(cbr.code),
@@ -171,16 +171,17 @@ export function mapCbrToCurrencyData(cbr: CbrCurrency): CurrencyData {
         previousRate: cbr.previous / cbr.nominal,
         change: cbr.change / cbr.nominal,
         changePercent: cbr.changePercent,
-        nominal: cbr.nominal, // сохраняем для загрузки истории
         history: { "1Д": [], "1Н": [], "1М": [], "1Г": [] },
         baseCurrency: "RUB",
         source: "ЦБ РФ",
+        nominal: cbr.nominal,
+        id: cbr.id,
     };
 }
 
-// Frankfurter (ЕЦБ) — БЕЗ истории
 export function mapFrankfurterToCurrencyData(
     frank: FrankfurterCurrency,
+    history?: HistoryPoint[],
 ): CurrencyData {
     return {
         code: frank.code,
@@ -191,22 +192,20 @@ export function mapFrankfurterToCurrencyData(
         previousRate: frank.rate,
         change: 0,
         changePercent: 0,
-        nominal: 1,
         history: { "1Д": [], "1Н": [], "1М": [], "1Г": [] },
         baseCurrency: "EUR",
         source: "ЕЦБ",
+        nominal: 1,
     };
 }
 
-// MOEX — БЕЗ истории
 export function mapMoexToCurrencyData(
     market: MoexMarketData,
-    secid: string,
+    security: MoexSecurity,
 ): CurrencyData | null {
-    const match = secid.match(/^([A-Z]{3})RUB/);
-    if (!match) return null;
+    const code = security.faceunit;
+    if (!code || code === "RUB") return null;
 
-    const code = match[1];
     const currentRate = market.last ?? 0;
     if (currentRate === 0) return null;
 
@@ -224,9 +223,10 @@ export function mapMoexToCurrencyData(
         previousRate,
         change,
         changePercent,
-        nominal: 1,
         history: { "1Д": [], "1Н": [], "1М": [], "1Г": [] },
         baseCurrency: "RUB",
         source: "Мосбиржа",
+        secid: security.secid,
+        nominal: 1,
     };
 }

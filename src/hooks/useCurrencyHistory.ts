@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { fetchCbrHistoryForCurrency } from "../api/cbr";
 import { fetchFrankfurterHistory } from "../api/frankfurter";
+import { fetchMoexHistoryForCurrency } from "../api/moex";
 import type { HistoryPoint, Timeframe, CurrencyData } from "../types/currency";
 
 const TIMEFRAME_DAYS: Record<Timeframe, number> = {
@@ -10,7 +11,6 @@ const TIMEFRAME_DAYS: Record<Timeframe, number> = {
     "1Г": 365,
 };
 
-// Глобальный кэш истории по валюте+таймфрейму
 const historyMemCache = new Map<string, HistoryPoint[]>();
 
 interface UseCurrencyHistoryReturn {
@@ -49,11 +49,8 @@ export const useCurrencyHistory = (
             try {
                 let data: HistoryPoint[] = [];
 
-                if (currency.source === "ЦБ РФ") {
-                    data = await fetchCbrHistoryForCurrency(
-                        currency.code,
-                        days,
-                    );
+                if (currency.source === "ЦБ РФ" && currency.id) {
+                    data = await fetchCbrHistoryForCurrency(currency.id, days);
                 } else if (currency.source === "ЕЦБ") {
                     const historyMap = await fetchFrankfurterHistory(
                         "EUR",
@@ -61,9 +58,11 @@ export const useCurrencyHistory = (
                         days,
                     );
                     data = historyMap[currency.code] || [];
-                } else if (currency.source === "Мосбиржа") {
-                    // Для Мосбиржи история пока недоступна — вернём пустой массив
-                    data = [];
+                } else if (currency.source === "Мосбиржа" && currency.secid) {
+                    data = await fetchMoexHistoryForCurrency(
+                        currency.secid,
+                        days,
+                    );
                 }
 
                 if (!cancelled) {
@@ -88,7 +87,13 @@ export const useCurrencyHistory = (
         return () => {
             cancelled = true;
         };
-    }, [currency?.code, currency?.source, timeframe]);
+    }, [
+        currency?.code,
+        currency?.source,
+        timeframe,
+        currency?.id,
+        currency?.secid,
+    ]);
 
     return { history, loading, error };
 };

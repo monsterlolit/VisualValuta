@@ -27,6 +27,7 @@ export interface MoexSecurity {
     prevprice: number | null;
     prevwaprice: number | null;
     currencyid: string;
+    faceunit: string;
 }
 
 export interface MoexMarketData {
@@ -38,6 +39,8 @@ export interface MoexMarketData {
     low: number | null;
     open: number | null;
     waprice: number | null;
+    closeprice?: number | null;
     tradingstatus: string;
     updatetime: string;
+    prevprice?: number | null;
 }

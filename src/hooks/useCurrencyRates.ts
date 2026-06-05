@@ -36,21 +36,28 @@ export const useCurrencyRates = (
 
             if (source === "ЦБ РФ") {
                 const cbrData = await fetchCbrRates();
-                // Теперь mapCbrToCurrencyData синхронный, никаких запросов истории!
                 data = cbrData.map(mapCbrToCurrencyData);
                 setHasRuble(true);
             } else if (source === "ЕЦБ") {
                 const frankData = await fetchFrankfurterRates("EUR");
                 const filtered = frankData.filter((f) => f.code !== "RUB");
-                data = filtered.map((f) => mapFrankfurterToCurrencyData(f));
+                data = filtered.map((f) => mapFrankfurterToCurrencyData(f, []));
                 setHasRuble(false);
             } else if (source === "Мосбиржа") {
                 const pairs = await fetchAllMoexCurrencies();
-                data = pairs
-                    .map((p) =>
-                        mapMoexToCurrencyData(p.market, p.security.secid),
-                    )
+                const rawData = pairs
+                    .map((p) => mapMoexToCurrencyData(p.market, p.security))
                     .filter((c): c is CurrencyData => c !== null);
+
+                // 👇 ДЕДУПЛИКАЦИЯ: Убираем дубликаты по коду валюты (чтобы не было 3-х долларов)
+                const uniqueData = new Map<string, CurrencyData>();
+                for (const c of rawData) {
+                    if (!uniqueData.has(c.code)) {
+                        uniqueData.set(c.code, c);
+                    }
+                }
+                data = Array.from(uniqueData.values());
+
                 setHasRuble(true);
             }
 

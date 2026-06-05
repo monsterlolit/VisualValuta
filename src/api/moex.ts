@@ -1,4 +1,5 @@
 import type { MoexResponse, MoexSecurity, MoexMarketData } from "../types/moex";
+import type { HistoryPoint } from "../types/currency";
 
 const BASE_URL = "https://iss.moex.com/iss";
 
@@ -15,10 +16,6 @@ function parseMoexSection<T>(section: {
     });
 }
 
-/**
- * Получает ВСЕ валютные пары с Мосбиржи одним запросом.
- * Фильтруем только пары к RUB на основной площадке CETS.
- */
 export async function fetchAllMoexCurrencies(): Promise<
     { security: MoexSecurity; market: MoexMarketData }[]
 > {
@@ -31,20 +28,20 @@ export async function fetchAllMoexCurrencies(): Promise<
     const securities = parseMoexSection<MoexSecurity>(data.securities);
     const marketdata = parseMoexSection<MoexMarketData>(data.marketdata);
 
-    // Индексируем marketdata по secid+boardid
     const marketMap = new Map<string, MoexMarketData>();
     for (const m of marketdata) {
         const key = `${m.secid}-${m.boardid}`;
         marketMap.set(key, m);
     }
 
-    // Берём пары к RUB на CETS (основная площадка)
-    // ВАЖНО: не фильтруем по TOM, берём все пары с реальными данными
+    // 👇 ФИЛЬТР: Оставляем только TOM (Tomorrow) — это основные торги, без дубликатов TOD/FIX
     const rubPairs = securities.filter(
         (s) =>
             s.boardid === "CETS" &&
-            s.secid.includes("RUB") &&
-            !s.secid.startsWith("RUB"), // исключаем сам рубль
+            s.currencyid === "RUB" &&
+            s.faceunit &&
+            s.faceunit !== "RUB" &&
+            s.secid.endsWith("TOM"),
     );
 
     const result: { security: MoexSecurity; market: MoexMarketData }[] = [];
@@ -53,42 +50,96 @@ export async function fetchAllMoexCurrencies(): Promise<
         const market = marketMap.get(`${sec.secid}-${sec.boardid}`);
         if (!market) continue;
 
-        // Берём LAST цену или WAPRICE или MARKETPRICE2
-        const lastPrice = market.last ?? market.waprice ?? market.marketprice2;
+        const price =
+            market.waprice ??
+            market.closeprice ??
+            market.last ??
+            market.prevprice;
 
-        if (lastPrice === null || lastPrice === undefined || lastPrice === 0) {
-            continue; // пропускаем пары без торгов
+        if (price === null || price === undefined || price === 0) {
+            continue;
         }
 
         const validMarket: MoexMarketData = {
             ...market,
-            last: lastPrice,
+            last: price,
         };
 
         result.push({ security: sec, market: validMarket });
     }
 
-    // Убираем дубликаты: оставляем только TOM для каждой валюты
-    const uniqueByCode = new Map<
-        string,
-        { security: MoexSecurity; market: MoexMarketData }
-    >();
-    for (const item of result) {
-        const match = item.security.secid.match(/^([A-Z]{3})RUB/);
-        if (match) {
-            const code = match[1];
-            const isTom = item.security.secid.includes("TOM");
-            const existing = uniqueByCode.get(code);
+    return result;
+}
 
-            // Предпочитаем TOM, если есть
-            if (
-                !existing ||
-                (isTom && !existing.security.secid.includes("TOM"))
-            ) {
-                uniqueByCode.set(code, item);
-            }
+export async function fetchMoexHistoryForCurrency(
+    secid: string,
+    days: number,
+): Promise<HistoryPoint[]> {
+    const endDate = new Date();
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - days);
+
+    const formatDate = (d: Date) => d.toISOString().split("T")[0];
+
+    const url = `${BASE_URL}/history/engines/currency/markets/selt/securities/${secid}.json?from=${formatDate(startDate)}&till=${formatDate(endDate)}`;
+    const response = await fetch(url);
+    if (!response.ok) {
+        console.warn("Не удалось загрузить историю Мосбиржи", url);
+        return [];
+    }
+
+    const data = await response.json();
+    if (!data.history || !data.history.data) return [];
+
+    const columns = data.history.columns;
+    const tradeDateIdx = columns.indexOf("TRADEDATE");
+    const closeIdx = columns.indexOf("CLOSE");
+    const legalCloseIdx = columns.indexOf("LEGALCLOSEPRICE");
+    const wapriceIdx = columns.indexOf("WAPRICE");
+    const boardIdIdx = columns.indexOf("BOARDID");
+    const secIdIdx = columns.indexOf("SECID");
+
+    const dateMap = new Map<string, number>();
+
+    for (const row of data.history.data) {
+        const rowSecId = secIdIdx !== -1 ? row[secIdIdx] : secid;
+        const rowBoardId = boardIdIdx !== -1 ? row[boardIdIdx] : "CETS";
+
+        // Жесткий фильтр: только нужный SECID и режим торгов CETS
+        if (rowSecId !== secid || rowBoardId !== "CETS") continue;
+
+        const dateStr = row[tradeDateIdx];
+        const legalClose = legalCloseIdx !== -1 ? row[legalCloseIdx] : null;
+        const wapr = wapriceIdx !== -1 ? row[wapriceIdx] : null;
+        const close = closeIdx !== -1 ? row[closeIdx] : null;
+
+        // Приоритет: LEGALCLOSEPRICE (офиц. курс) -> WAPRICE -> CLOSE. Игнорируем нули.
+        const value = legalClose ?? wapr ?? close;
+
+        if (dateStr && value !== null && value !== undefined && value > 0) {
+            dateMap.set(dateStr, parseFloat(value));
         }
     }
 
-    return Array.from(uniqueByCode.values());
+    const history: HistoryPoint[] = [];
+    const sortedDates = Array.from(dateMap.keys()).sort();
+
+    for (const dateStr of sortedDates) {
+        const [yyyy, mm, dd] = dateStr.split("-");
+        const dateObj = new Date(
+            parseInt(yyyy),
+            parseInt(mm) - 1,
+            parseInt(dd),
+        );
+        const dateFormatted = dateObj.toLocaleDateString("ru-RU", {
+            day: "numeric",
+            month: "short",
+        });
+        history.push({
+            date: dateFormatted,
+            value: dateMap.get(dateStr)!,
+        });
+    }
+
+    return history;
 }
