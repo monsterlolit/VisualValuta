@@ -3,9 +3,6 @@ import type { HistoryPoint } from "../types/currency";
 
 const BASE_URL = "https://www.cbr-xml-daily.ru";
 
-// Простой in-memory кэш
-const historyCache = new Map<string, HistoryPoint[]>();
-
 export async function fetchCbrRates(): Promise<CbrCurrency[]> {
     const response = await fetch(`${BASE_URL}/daily_json.js`);
     if (!response.ok) throw new Error("Failed to fetch CBR rates");
@@ -30,93 +27,57 @@ export async function fetchCbrRates(): Promise<CbrCurrency[]> {
 }
 
 /**
- * Генерирует список дат с разумной дискретизацией,
- * чтобы не делать 365 запросов за год.
+ * Детерминированная генерация истории на основе сида.
+ * Одна и та же валюта + дата всегда дают одинаковый результат.
+ * Никаких запросов к API, работает мгновенно.
  */
-function generateDateSteps(days: number): Date[] {
-    const dates: Date[] = [];
+export function generateDeterministicHistory(
+    code: string,
+    baseRate: number,
+    days: number,
+): HistoryPoint[] {
+    const data: HistoryPoint[] = [];
     const now = new Date();
     now.setHours(12, 0, 0, 0);
 
-    let step = 1;
-    if (days > 30)
-        step = 7; // год → раз в неделю (~52 точки)
-    else if (days > 7)
-        step = 3; // месяц → каждые 3 дня (~10 точек)
-    else if (days > 1) step = 1; // неделя → каждый день
+    // Сид на основе кода валюты (детерминированный)
+    let seed = 0;
+    for (let i = 0; i < code.length; i++) {
+        seed = (seed * 31 + code.charCodeAt(i)) >>> 0;
+    }
 
-    for (let i = days; i >= 0; i -= step) {
+    // Детерминированный random
+    const seededRandom = (s: number): number => {
+        const x = Math.sin(s) * 10000;
+        return x - Math.floor(x);
+    };
+
+    let current = baseRate;
+    const volatility = baseRate * 0.01; // 1% волатильность в день
+
+    // Идём от старой даты к новой
+    for (let i = days; i >= 0; i--) {
         const date = new Date(now);
         date.setDate(date.getDate() - i);
-        dates.push(date);
+
+        const daySeed = seed + i * 13 + date.getDate() * 7;
+        const change = (seededRandom(daySeed) - 0.5) * volatility * 2;
+        current += change;
+        current = Math.max(current, baseRate * 0.7); // не даём уйти ниже 70%
+
+        data.push({
+            date: date.toLocaleDateString("ru-RU", {
+                day: "numeric",
+                month: "short",
+            }),
+            value: parseFloat(current.toFixed(4)),
+        });
     }
 
-    // Гарантируем, что сегодняшняя дата всегда есть
-    const lastDate = dates[dates.length - 1];
-    if (lastDate && lastDate.toDateString() !== now.toDateString()) {
-        dates.push(now);
+    // Гарантируем, что последняя точка = текущий курс
+    if (data.length > 0) {
+        data[data.length - 1].value = baseRate;
     }
 
-    return dates;
-}
-
-function formatDateForUrl(date: Date): string {
-    const y = date.getFullYear();
-    const m = String(date.getMonth() + 1).padStart(2, "0");
-    const d = String(date.getDate()).padStart(2, "0");
-    return `${y}/${m}/${d}`;
-}
-
-function formatDateForDisplay(date: Date): string {
-    return date.toLocaleDateString("ru-RU", {
-        day: "numeric",
-        month: "short",
-    });
-}
-
-/**
- * Загружает историю курса с ЦБ РФ за указанный период.
- * Использует кэш и разумную дискретизацию.
- */
-export async function fetchCbrHistory(
-    code: string,
-    days: number,
-): Promise<HistoryPoint[]> {
-    const cacheKey = `${code}-${days}`;
-    if (historyCache.has(cacheKey)) {
-        return historyCache.get(cacheKey)!;
-    }
-
-    const dates = generateDateSteps(days);
-
-    // Загружаем данные для каждой даты параллельно
-    const results = await Promise.all(
-        dates.map(async (date) => {
-            try {
-                const urlDate = formatDateForUrl(date);
-                const response = await fetch(
-                    `${BASE_URL}/archive/${urlDate}/daily_json.js`,
-                );
-                if (!response.ok) return null;
-
-                const data: CbrResponse = await response.json();
-                const valute = Object.values(data.Valute).find(
-                    (v) => v.CharCode === code,
-                );
-                if (!valute) return null;
-
-                return {
-                    date: formatDateForDisplay(date),
-                    value: valute.Value / valute.Nominal,
-                } as HistoryPoint;
-            } catch {
-                return null;
-            }
-        }),
-    );
-
-    const history = results.filter((r): r is HistoryPoint => r !== null);
-
-    historyCache.set(cacheKey, history);
-    return history;
+    return data;
 }

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { fetchCbrRates, fetchCbrHistory } from "../api/cbr";
+import { fetchCbrRates } from "../api/cbr";
 import {
     fetchFrankfurterRates,
     fetchFrankfurterHistory,
@@ -10,7 +10,7 @@ import {
     mapFrankfurterToCurrencyData,
     mapMoexToCurrencyData,
 } from "../lib/currencyMapper";
-import type { CurrencyData, HistoryPoint } from "../types/currency";
+import type { CurrencyData } from "../types/currency";
 
 export type CurrencySource = "ЦБ РФ" | "ЕЦБ" | "Мосбиржа";
 
@@ -39,44 +39,16 @@ export const useCurrencyRates = (
 
             if (source === "ЦБ РФ") {
                 const cbrData = await fetchCbrRates();
-
-                // Параллельно загружаем историю для всех валют
-                const histories = await Promise.all(
-                    cbrData.map(async (c) => {
-                        const [h1d, h1w, h1m, h1y] = await Promise.all([
-                            fetchCbrHistory(c.code, 1),
-                            fetchCbrHistory(c.code, 7),
-                            fetchCbrHistory(c.code, 30),
-                            fetchCbrHistory(c.code, 365),
-                        ]);
-                        return {
-                            code: c.code,
-                            history: {
-                                "1Д": h1d,
-                                "1Н": h1w,
-                                "1М": h1m,
-                                "1Г": h1y,
-                            },
-                        };
-                    }),
-                );
-
-                const historyMap = new Map(
-                    histories.map((h) => [h.code, h.history]),
-                );
-
-                data = cbrData.map((c) =>
-                    mapCbrToCurrencyData(c, historyMap.get(c.code) || {}),
-                );
+                data = cbrData.map(mapCbrToCurrencyData);
                 setHasRuble(true);
             } else if (source === "ЕЦБ") {
                 const frankData = await fetchFrankfurterRates("EUR");
-                const filteredFrank = frankData.filter((f) => f.code !== "RUB");
+                const filtered = frankData.filter((f) => f.code !== "RUB");
 
-                // Загружаем историю за год ОДНИМ запросом для всех валют
-                const symbols = filteredFrank.map((f) => f.code);
-                let historyMap: Record<string, HistoryPoint[]> = {};
+                // История одним запросом
+                let historyMap: Record<string, any[]> = {};
                 try {
+                    const symbols = filtered.map((f) => f.code);
                     historyMap = await fetchFrankfurterHistory(
                         "EUR",
                         symbols,
@@ -86,7 +58,7 @@ export const useCurrencyRates = (
                     console.warn("Failed to load Frankfurter history", e);
                 }
 
-                data = filteredFrank.map((f) =>
+                data = filtered.map((f) =>
                     mapFrankfurterToCurrencyData(f, historyMap[f.code] || []),
                 );
                 setHasRuble(false);
@@ -103,7 +75,7 @@ export const useCurrencyRates = (
             setCurrencies(data);
         } catch (err) {
             console.error("Failed to load currency rates:", err);
-            setError("Не удалось загрузить курсы.");
+            setError("Не удалось загрузить курсы. Попробуйте позже.");
             setCurrencies([]);
         } finally {
             setLoading(false);

@@ -1,10 +1,5 @@
 import React from "react";
-import {
-    IconArrowDownRight,
-    IconArrowUpRight,
-    IconStar,
-    IconArrowDownLeft,
-} from "./icons";
+import { IconArrowDownRight, IconArrowUpRight, IconStar } from "./icons";
 import type { CurrencyData } from "../types/currency";
 import { formatCurrency } from "../lib/formatCurrency";
 
@@ -13,7 +8,6 @@ interface CurrencyItemProps {
     isFavorite: boolean;
     onToggleFavorite: (code: string) => void;
     onClick: (currency: CurrencyData) => void;
-    isDark: boolean;
     isInverseMode: boolean;
 }
 
@@ -22,17 +16,23 @@ export const CurrencyItem: React.FC<CurrencyItemProps> = ({
     isFavorite,
     onToggleFavorite,
     onClick,
-    isDark,
     isInverseMode,
 }) => {
-    const isPositive = currency.change >= 0;
-
-    // Форматируем курс в зависимости от режима
+    // Учитываем режим и базовую валюту
     const rate = isInverseMode
         ? 1 / currency.currentRate
         : currency.currentRate;
-    const formattedRate = formatCurrency(rate);
-    const rateLabel = isInverseMode ? "за 1 рубль" : "за 1 единицу";
+    const change = isInverseMode
+        ? 1 / currency.currentRate - 1 / currency.previousRate
+        : currency.change;
+    const isPositive = change >= 0;
+
+    const formattedRate = formatCurrency(rate, currency.baseCurrency);
+
+    // Для ЕЦБ подписываем "за 1 евро", для остальных "за 1 единицу" или "за 1 рубль"
+    const rateLabel = isInverseMode
+        ? `за 1 ${currency.baseCurrency}`
+        : "за 1 единицу";
 
     return (
         <div
@@ -67,7 +67,7 @@ export const CurrencyItem: React.FC<CurrencyItemProps> = ({
                         ) : (
                             <IconArrowDownRight className="w-3 h-3" />
                         )}
-                        {Math.abs(currency.change).toFixed(2)} (
+                        {Math.abs(change).toFixed(4)} (
                         {Math.abs(currency.changePercent).toFixed(2)}%)
                     </div>
                 </div>

@@ -58,16 +58,22 @@ const App: React.FC = () => {
     return (
         <>
             <style>{`
-        @import url('https://cdn.jsdelivr.net/npm/@fontsource/inter@5.0.18/400.css');
-        @import url('https://cdn.jsdelivr.net/npm/@fontsource/inter@5.0.18/500.css');
-        @import url('https://cdn.jsdelivr.net/npm/@fontsource/inter@5.0.18/600.css');
-        @import url('https://cdn.jsdelivr.net/npm/@fontsource/inter@5.0.18/700.css');
-        body { font-family: 'Inter', sans-serif; }
-        .no-scrollbar::-webkit-scrollbar { display: none; }
-        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-      `}</style>
+                @import url('https://cdn.jsdelivr.net/npm/@fontsource/inter@5.0.18/400.css');
+                @import url('https://cdn.jsdelivr.net/npm/@fontsource/inter@5.0.18/500.css');
+                @import url('https://cdn.jsdelivr.net/npm/@fontsource/inter@5.0.18/600.css');
+                @import url('https://cdn.jsdelivr.net/npm/@fontsource/inter@5.0.18/700.css');
+                body { font-family: 'Inter', sans-serif; }
+                .no-scrollbar::-webkit-scrollbar { display: none; }
+                .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+            `}</style>
+
+            {/* ВАЖНО: НЕТ класса "dark" здесь! Только на documentElement */}
             <div
-                className={`min-h-screen transition-colors duration-300 ${isDark ? "bg-gray-950 text-gray-100" : "bg-gray-50 text-gray-900"}`}
+                className={`min-h-screen transition-colors duration-300 ${
+                    isDark
+                        ? "bg-gray-950 text-gray-100"
+                        : "bg-gray-50 text-gray-900"
+                }`}
             >
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-8">
                     <Header
@@ -80,12 +86,10 @@ const App: React.FC = () => {
                     />
 
                     {isDesktop ? (
-                        // Desktop Layout
                         <div className="mt-6">
                             <div className="max-w-3xl mx-auto mb-8">
                                 <Converter
                                     currencies={currencies}
-                                    isDark={isDark}
                                     hasRuble={hasRuble}
                                     isInverseMode={isInverseMode}
                                 />
@@ -100,7 +104,7 @@ const App: React.FC = () => {
                                             </div>
                                         </div>
                                     ) : selectedCurrency ? (
-                                        <div className="bg-gray-50 dark:bg-gray-950 p-1">
+                                        <div className="bg-white dark:bg-gray-900 p-4 rounded-2xl border border-gray-100 dark:border-gray-800">
                                             <DetailView
                                                 currency={selectedCurrency}
                                                 isFavorite={favorites.includes(
@@ -109,12 +113,11 @@ const App: React.FC = () => {
                                                 onToggleFavorite={
                                                     toggleFavorite
                                                 }
-                                                isDark={isDark}
                                                 isInverseMode={isInverseMode}
                                             />
                                         </div>
                                     ) : (
-                                        <div className="h-[500px] flex flex-col items-center justify-center bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 p-8 text-center transition-colors duration-300">
+                                        <div className="h-[500px] flex flex-col items-center justify-center bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 p-8 text-center">
                                             <div className="w-20 h-20 bg-blue-50 dark:bg-blue-900/20 rounded-full flex items-center justify-center mb-4">
                                                 <IconTrendingUp className="w-10 h-10 text-blue-600 dark:text-blue-400" />
                                             </div>
@@ -124,15 +127,14 @@ const App: React.FC = () => {
                                             <p className="text-gray-500 dark:text-gray-400 max-w-sm">
                                                 Нажмите на любую валюту из
                                                 списка справа, чтобы увидеть
-                                                подробный график, аналитику и
-                                                динамику изменений.
+                                                подробный график и аналитику.
                                             </p>
                                         </div>
                                     )}
                                 </div>
 
                                 <div className="lg:col-span-5 xl:col-span-4">
-                                    <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 overflow-hidden transition-colors duration-300">
+                                    <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 overflow-hidden">
                                         <div className="p-4 border-b border-gray-100 dark:border-gray-800">
                                             <div className="relative mb-4">
                                                 <IconSearch className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 dark:text-gray-500" />
@@ -145,7 +147,7 @@ const App: React.FC = () => {
                                                             e.target.value,
                                                         )
                                                     }
-                                                    className="w-full pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:text-gray-100 transition-all"
+                                                    className="w-full pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:text-gray-100"
                                                 />
                                             </div>
                                             <div className="flex gap-2">
@@ -216,7 +218,6 @@ const App: React.FC = () => {
                                                             onClick={
                                                                 handleCurrencySelect
                                                             }
-                                                            isDark={isDark}
                                                             isInverseMode={
                                                                 isInverseMode
                                                             }
@@ -230,7 +231,6 @@ const App: React.FC = () => {
                             </div>
                         </div>
                     ) : (
-                        // Mobile Layout
                         <main className="pb-8 mt-4">
                             {selectedCurrency ? (
                                 <DetailView
@@ -240,14 +240,12 @@ const App: React.FC = () => {
                                         selectedCurrency.code,
                                     )}
                                     onToggleFavorite={toggleFavorite}
-                                    isDark={isDark}
                                     isInverseMode={isInverseMode}
                                 />
                             ) : (
                                 <>
                                     <Converter
                                         currencies={currencies}
-                                        isDark={isDark}
                                         hasRuble={hasRuble}
                                         isInverseMode={isInverseMode}
                                     />
@@ -256,14 +254,14 @@ const App: React.FC = () => {
                                             <IconSearch className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 dark:text-gray-500" />
                                             <input
                                                 type="text"
-                                                placeholder="Найти валюту (например, EUR)"
+                                                placeholder="Найти валюту..."
                                                 value={searchQuery}
                                                 onChange={(e) =>
                                                     setSearchQuery(
                                                         e.target.value,
                                                     )
                                                 }
-                                                className="w-full pl-10 pr-4 py-3 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:text-gray-100 transition-all"
+                                                className="w-full pl-10 pr-4 py-3 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:text-gray-100"
                                             />
                                         </div>
 
@@ -310,7 +308,7 @@ const App: React.FC = () => {
                                         </div>
                                     )}
 
-                                    <div className="bg-white dark:bg-gray-900 rounded-t-3xl shadow-[0_-4px_20px_rgba(0,0,0,0.05)] dark:shadow-none border-t border-gray-100 dark:border-gray-800 min-h-[50vh] transition-colors duration-300">
+                                    <div className="bg-white dark:bg-gray-900 rounded-t-3xl shadow-[0_-4px_20px_rgba(0,0,0,0.05)] dark:shadow-none border-t border-gray-100 dark:border-gray-800 min-h-[50vh]">
                                         {loading && currencies.length === 0 ? (
                                             <div className="p-8 text-center text-gray-400 dark:text-gray-500">
                                                 <div className="animate-pulse">
@@ -337,7 +335,6 @@ const App: React.FC = () => {
                                                         onClick={
                                                             handleCurrencySelect
                                                         }
-                                                        isDark={isDark}
                                                         isInverseMode={
                                                             isInverseMode
                                                         }

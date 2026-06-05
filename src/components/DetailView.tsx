@@ -25,7 +25,6 @@ interface DetailViewProps {
     onBack?: () => void;
     isFavorite: boolean;
     onToggleFavorite: (code: string) => void;
-    isDark: boolean;
     isInverseMode: boolean;
 }
 
@@ -34,14 +33,12 @@ export const DetailView: React.FC<DetailViewProps> = ({
     onBack,
     isFavorite,
     onToggleFavorite,
-    isDark,
     isInverseMode,
 }) => {
     const [timeframe, setTimeframe] = useState<Timeframe>("1М");
     const rawData = currency.history[timeframe] || [];
-    const isPositive = currency.change >= 0;
 
-    // Инвертируем данные графика, если включён обратный режим
+    // Инвертируем данные графика
     const chartData: HistoryPoint[] = useMemo(() => {
         if (!isInverseMode) return rawData;
         return rawData.map((p) => ({
@@ -50,7 +47,6 @@ export const DetailView: React.FC<DetailViewProps> = ({
         }));
     }, [rawData, isInverseMode]);
 
-    // Текущий курс и изменения с учётом режима
     const currentRate = isInverseMode
         ? 1 / currency.currentRate
         : currency.currentRate;
@@ -60,8 +56,10 @@ export const DetailView: React.FC<DetailViewProps> = ({
     const change = currentRate - previousRate;
     const changePercent =
         previousRate !== 0 ? (change / previousRate) * 100 : 0;
-    const displayPositive = isInverseMode ? change >= 0 : isPositive;
+    const displayPositive = change >= 0;
 
+    // Определяем цвет
+    const isDark = document.documentElement.classList.contains("dark");
     const strokeColor = displayPositive
         ? isDark
             ? "#4ade80"
@@ -77,6 +75,11 @@ export const DetailView: React.FC<DetailViewProps> = ({
     const max = chartData.length
         ? Math.max(...chartData.map((d) => d.value))
         : 0;
+
+    // Формируем заголовок пары с учётом режима
+    const pairLabel = isInverseMode
+        ? `${currency.baseCurrency} / ${currency.code}`
+        : `${currency.code} / ${currency.baseCurrency}`;
 
     return (
         <div className="h-full flex flex-col">
@@ -94,9 +97,7 @@ export const DetailView: React.FC<DetailViewProps> = ({
                         {currency.flag} {currency.name}
                     </h2>
                     <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">
-                        {isInverseMode
-                            ? `${currency.baseCurrency} / ${currency.code}`
-                            : `${currency.code} / ${currency.baseCurrency}`}
+                        {pairLabel}
                     </p>
                 </div>
                 <button
@@ -111,10 +112,7 @@ export const DetailView: React.FC<DetailViewProps> = ({
 
             <div className="mb-6">
                 <div className="text-4xl font-bold text-gray-900 dark:text-gray-50 mb-2">
-                    {currentRate.toLocaleString("ru-RU", {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 4,
-                    })}
+                    {formatCurrency(currentRate, currency.baseCurrency)}
                 </div>
                 <div
                     className={`flex items-center gap-2 text-base font-semibold ${displayPositive ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}
@@ -187,7 +185,12 @@ export const DetailView: React.FC<DetailViewProps> = ({
                                 domain={["dataMin - 1", "dataMax + 1"]}
                             />
                             <Tooltip
-                                content={<CustomTooltip isDark={isDark} />}
+                                content={
+                                    <CustomTooltip
+                                        isDark={isDark}
+                                        baseCurrency={currency.baseCurrency}
+                                    />
+                                }
                                 cursor={{
                                     stroke: isDark ? "#6b7280" : "#9ca3af",
                                     strokeWidth: 1,
@@ -240,10 +243,7 @@ export const DetailView: React.FC<DetailViewProps> = ({
                         <IconArrowDownRight className="w-3.5 h-3.5" /> Минимум
                     </div>
                     <div className="text-lg font-bold text-gray-900 dark:text-gray-100">
-                        {min.toLocaleString("ru-RU", {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 4,
-                        })}
+                        {formatCurrency(min, currency.baseCurrency)}
                     </div>
                 </div>
                 <div className="bg-white dark:bg-gray-900 p-4 rounded-2xl border border-gray-100 dark:border-gray-800 transition-colors duration-300">
@@ -251,10 +251,7 @@ export const DetailView: React.FC<DetailViewProps> = ({
                         <IconArrowUpRight className="w-3.5 h-3.5" /> Максимум
                     </div>
                     <div className="text-lg font-bold text-gray-900 dark:text-gray-100">
-                        {max.toLocaleString("ru-RU", {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 4,
-                        })}
+                        {formatCurrency(max, currency.baseCurrency)}
                     </div>
                 </div>
             </div>

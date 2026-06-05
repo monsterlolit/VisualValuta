@@ -15,25 +15,9 @@ function parseMoexSection<T>(section: {
     });
 }
 
-export async function fetchMoexData(secid: string): Promise<{
-    securities: MoexSecurity[];
-    marketdata: MoexMarketData[];
-}> {
-    const url = `${BASE_URL}/engines/currency/markets/selt/securities/${secid}.json`;
-    const response = await fetch(url);
-    if (!response.ok) throw new Error("Failed to fetch MOEX data");
-
-    const data: MoexResponse = await response.json();
-
-    return {
-        securities: parseMoexSection<MoexSecurity>(data.securities),
-        marketdata: parseMoexSection<MoexMarketData>(data.marketdata),
-    };
-}
-
 /**
- * Получает ВСЕ валютные пары с Мосбиржи одним запросом
- * Фильтрует только пары к RUB на основной площадке CETS
+ * Получает ВСЕ валютные пары с Мосбиржи одним запросом.
+ * Фильтруем только пары к RUB на основной площадке CETS с реальными торгами.
  */
 export async function fetchAllMoexCurrencies(): Promise<
     { security: MoexSecurity; market: MoexMarketData }[]
@@ -54,43 +38,42 @@ export async function fetchAllMoexCurrencies(): Promise<
         marketMap.set(key, m);
     }
 
-    // Берём только пары к RUB на основной площадке CETS
+    // Берём только основные TOM-пары на CETS (это основная площадка с реальным курсом)
     const rubPairs = securities.filter(
         (s) =>
             s.boardid === "CETS" &&
+            s.secid.endsWith("TOM") && // только TOM (основной рынок)
             s.secid.includes("RUB") &&
-            !s.secid.includes("RUB000"), // исключаем сам рубль
+            !s.secid.startsWith("RUB"), // исключаем сам рубль
     );
 
-    // Сопоставляем с marketdata
     const result: { security: MoexSecurity; market: MoexMarketData }[] = [];
+
     for (const sec of rubPairs) {
         const market = marketMap.get(`${sec.secid}-${sec.boardid}`);
-        if (market && market.last !== null && market.last !== undefined) {
-            result.push({ security: sec, market });
+        if (!market) continue;
+
+        // ВАЖНО: берём LAST цену (последняя сделка), это и есть реальный курс
+        // Если LAST нет, пробуем WAPRICE, потом MARKETPRICE2
+        const lastPrice = market.last ?? market.waprice ?? market.marketprice2;
+
+        if (lastPrice === null || lastPrice === undefined || lastPrice === 0) {
+            continue; // пропускаем пары без торгов
         }
+
+        // Подменяем last на валидное значение для дальнейшей обработки
+        const validMarket: MoexMarketData = {
+            ...market,
+            last: lastPrice,
+        };
+
+        // Проверяем, что торги идут (статус T = traded)
+        if (market.tradingstatus && market.tradingstatus !== "T") {
+            // всё равно показываем, но с последней известной ценой
+        }
+
+        result.push({ security: sec, market: validMarket });
     }
 
-    // Убираем дубликаты (одна валюта может быть в TOM и TOD)
-    const uniqueByCode = new Map<
-        string,
-        { security: MoexSecurity; market: MoexMarketData }
-    >();
-    for (const item of result) {
-        const match = item.security.secid.match(/^([A-Z]{3})RUB/);
-        if (match) {
-            const code = match[1];
-            // Предпочитаем TOM (основной рынок)
-            const isTom = item.security.secid.includes("TOM");
-            const existing = uniqueByCode.get(code);
-            if (
-                !existing ||
-                (isTom && !existing.security.secid.includes("TOM"))
-            ) {
-                uniqueByCode.set(code, item);
-            }
-        }
-    }
-
-    return Array.from(uniqueByCode.values());
+    return result;
 }

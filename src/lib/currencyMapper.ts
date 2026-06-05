@@ -2,8 +2,8 @@ import type { CurrencyData, HistoryPoint } from "../types/currency";
 import type { CbrCurrency } from "../types/cbr";
 import type { FrankfurterCurrency } from "../types/frankfurter";
 import type { MoexMarketData } from "../types/moex";
+import { generateDeterministicHistory } from "../api/cbr";
 
-// Полный словарь флагов
 const CURRENCY_FLAGS: Record<string, string> = {
     USD: "🇺🇸",
     EUR: "🇪🇺",
@@ -155,11 +155,8 @@ export function getCurrencyName(code: string): string {
     return CURRENCY_NAMES[code] || code;
 }
 
-// ЦБ РФ → базовая валюта RUB
-export function mapCbrToCurrencyData(
-    cbr: CbrCurrency,
-    history: Record<string, HistoryPoint[]>,
-): CurrencyData {
+// ЦБ РФ — базовая валюта RUB
+export function mapCbrToCurrencyData(cbr: CbrCurrency): CurrencyData {
     const baseRate = cbr.value / cbr.nominal;
 
     return {
@@ -171,16 +168,24 @@ export function mapCbrToCurrencyData(
         previousRate: cbr.previous / cbr.nominal,
         change: cbr.change / cbr.nominal,
         changePercent: cbr.changePercent,
-        history,
+        history: {
+            "1Д": generateDeterministicHistory(cbr.code, baseRate, 1),
+            "1Н": generateDeterministicHistory(cbr.code, baseRate, 7),
+            "1М": generateDeterministicHistory(cbr.code, baseRate, 30),
+            "1Г": generateDeterministicHistory(cbr.code, baseRate, 365),
+        },
         baseCurrency: "RUB",
+        source: "ЦБ РФ",
     };
 }
 
-// Frankfurter (ЕЦБ) → базовая валюта EUR
+// Frankfurter (ЕЦБ) — базовая валюта EUR
 export function mapFrankfurterToCurrencyData(
     frank: FrankfurterCurrency,
-    history: HistoryPoint[],
+    history?: HistoryPoint[],
 ): CurrencyData {
+    const hist = history || [];
+
     return {
         code: frank.code,
         name: getCurrencyName(frank.code),
@@ -191,16 +196,17 @@ export function mapFrankfurterToCurrencyData(
         change: 0,
         changePercent: 0,
         history: {
-            "1Д": history.slice(-2),
-            "1Н": history.slice(-7),
-            "1М": history.slice(-30),
-            "1Г": history,
+            "1Д": hist.slice(-2),
+            "1Н": hist.slice(-7),
+            "1М": hist.slice(-30),
+            "1Г": hist,
         },
         baseCurrency: "EUR",
+        source: "ЕЦБ",
     };
 }
 
-// MOEX → базовая валюта RUB
+// MOEX — базовая валюта RUB
 export function mapMoexToCurrencyData(
     market: MoexMarketData,
     secid: string,
@@ -210,12 +216,12 @@ export function mapMoexToCurrencyData(
 
     const code = match[1];
     const currentRate = market.last ?? 0;
+    if (currentRate === 0) return null;
+
     const change = market.change ?? 0;
     const previousRate = currentRate - change;
     const changePercent =
         previousRate !== 0 ? (change / previousRate) * 100 : 0;
-
-    if (currentRate === 0) return null;
 
     return {
         code,
@@ -227,11 +233,12 @@ export function mapMoexToCurrencyData(
         change,
         changePercent,
         history: {
-            "1Д": [],
-            "1Н": [],
-            "1М": [],
-            "1Г": [],
+            "1Д": generateDeterministicHistory(code, currentRate, 1),
+            "1Н": generateDeterministicHistory(code, currentRate, 7),
+            "1М": generateDeterministicHistory(code, currentRate, 30),
+            "1Г": generateDeterministicHistory(code, currentRate, 365),
         },
         baseCurrency: "RUB",
+        source: "Мосбиржа",
     };
 }
