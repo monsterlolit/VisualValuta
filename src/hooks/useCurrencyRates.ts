@@ -41,7 +41,7 @@ export const useCurrencyRates = (
             } else if (source === "ЕЦБ") {
                 const frankData = await fetchFrankfurterRates("EUR");
                 const filtered = frankData.filter((f) => f.code !== "RUB");
-                data = filtered.map((f) => mapFrankfurterToCurrencyData(f, []));
+                data = filtered.map((f) => mapFrankfurterToCurrencyData(f));
                 setHasRuble(false);
             } else if (source === "Мосбиржа") {
                 const pairs = await fetchAllMoexCurrencies();

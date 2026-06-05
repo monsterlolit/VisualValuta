@@ -4,7 +4,7 @@ import { formatCurrency } from "../lib/formatCurrency";
 
 interface CustomTooltipProps {
     active?: boolean;
-    payload?: Payload[];
+    payload?: any[];
     isDark: boolean;
     baseCurrency?: BaseCurrency;
 }
