@@ -1,0 +1,8 @@
+{
+  "rewrites": [
+    {
+      "source": "/cbr-api/:path*",
+      "destination": "https://www.cbr.ru/:path*"
+    }
+  ]
+}

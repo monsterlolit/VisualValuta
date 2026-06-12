@@ -64,9 +64,7 @@ export async function fetchCbrHistoryForCurrency(
     const date1 = formatDate(startDate);
     const date2 = formatDate(endDate);
 
-    const apiUrl = import.meta.env.DEV
-        ? `/cbr-api/scripts/XML_dynamic.asp?date_req1=${date1}&date_req2=${date2}&VAL_NM_RQ=${id}`
-        : `https://www.cbr.ru/scripts/XML_dynamic.asp?date_req1=${date1}&date_req2=${date2}&VAL_NM_RQ=${id}`;
+    const apiUrl = `/cbr-api/scripts/XML_dynamic.asp?date_req1=${date1}&date_req2=${date2}&VAL_NM_RQ=${id}`;
 
     try {
         const response = await fetch(apiUrl);
